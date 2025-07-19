@@ -131,15 +131,62 @@ export default function Dashboard() {
   let integrationList = [], featuresList = [], challengesList = [], appVotes = {}, appNames = [];
   let keyOutcomes = [];
 
-  if (parsedData && parsedData.entries) {
-    results = parsedData.entries;
-    numSubmissions = results.length;
-    totalVotes = results.reduce((acc, curr) => acc + (parseInt(curr.votes, 10) || 0), 0);
-    keyOutcomes = parsedData.key_outcomes || [];
-    // Weekwise analytics (assume week field or submissionDate for grouping)
+  // Defensive: cast/validate source (parsedData could be array or object for various formats)
+  let entriesRaw = undefined;
+
+  if (Array.isArray(parsedData)) {
+    // If parsedData was loaded as an array (e.g., directly from JSON array)
+    entriesRaw = parsedData;
+  } else if (parsedData && Array.isArray(parsedData.entries)) {
+    entriesRaw = parsedData.entries;
+  } else if (parsedData && Array.isArray(parsedData.results)) {
+    // Defensive fallback for possible 'results'
+    entriesRaw = parsedData.results;
+  } else if (parsedData && Array.isArray(parsedData.data)) {
+    entriesRaw = parsedData.data;
+  }
+
+  // Additionally, support the actual appvote.json format -- which appears to be an array of app objects
+  if (!entriesRaw && parsedData && Array.isArray(parsedData)) {
+    entriesRaw = parsedData;
+  }
+  // Finally, if user loaded JSON as single-level array
+  if (!entriesRaw && Array.isArray(parsedData)) {
+    entriesRaw = parsedData;
+  }
+
+  // If appvote data looks like an array of objects (real format), use that
+  if (!entriesRaw && parsedData && typeof parsedData === 'object' && !parsedData.entries && !parsedData.results && !parsedData.data && Array.isArray(Object.values(parsedData))) {
+    // Defensive: if all top-level values are objects with app_name or similar marker use as entries
+    const allObjs = Object.values(parsedData);
+    if (allObjs.every(x => typeof x === 'object')) {
+      entriesRaw = allObjs;
+    }
+  }
+
+  if (!Array.isArray(entriesRaw)) entriesRaw = [];
+  results = entriesRaw;
+
+  numSubmissions = Array.isArray(results) ? results.length : 0;
+  totalVotes = Array.isArray(results)
+    ? results.reduce((acc, curr) => {
+        // Defensive: Support both {votes} and {vote_count}
+        const v = curr.votes || curr.vote_count || 0;
+        return acc + (parseInt(v, 10) || 0);
+      }, 0)
+    : 0;
+
+  try {
+    keyOutcomes = (parsedData && parsedData.key_outcomes && Array.isArray(parsedData.key_outcomes))
+      ? parsedData.key_outcomes
+      : [];
+  } catch { keyOutcomes = []; }
+
+  // Weekwise analytics (assume week field or submissionDate for grouping)
+  if (Array.isArray(results) && results.length > 0) {
     results.forEach(entry => {
-      // Use 'week' or extract week from 'submissionDate'
-      let wk = entry.week;
+      // Try common week/date fields: 'week', 'contest_week_name', or 'submissionDate'
+      let wk = entry.week || entry.contest_week_name;
       if (!wk && entry.submissionDate) {
         // Derive week number e.g. 2023-W19
         const dateObj = new Date(entry.submissionDate);
@@ -151,21 +198,59 @@ export default function Dashboard() {
         };
         wk = `${dateObj.getFullYear()}-W${getWeekNumber(dateObj)}`;
       }
+      // Defensive: also support 'start_date' or 'app_created_at'
+      if (!wk && (entry.start_date || entry.app_created_at)) {
+        const dateStr = entry.start_date || entry.app_created_at;
+        try {
+          const dateObj = new Date(dateStr);
+          const getWeekNumber = d => {
+            const onejan = new Date(d.getFullYear(),0,1);
+            const today = new Date(d.getFullYear(),d.getMonth(),d.getDate());
+            const diff = (today - onejan + 86400000)/86400000;
+            return Math.ceil(diff/7);
+          };
+          wk = `${dateObj.getFullYear()}-W${getWeekNumber(dateObj)}`;
+        } catch {}
+      }
       if (!wk) wk = 'Unknown';
+
       // Weekwise submissions
       weekwiseSubmissions[wk] = (weekwiseSubmissions[wk] || 0) + 1;
-      // Weekwise votes
-      weekwiseVotes[wk] = (weekwiseVotes[wk] || 0) + (parseInt(entry.votes,10) || 0);
 
-      // Integrations, features, challenges extraction
-      if (entry.integrations) integrationList = integrationList.concat(entry.integrations);
-      if (entry.uniqueFeatures) featuresList = featuresList.concat(entry.uniqueFeatures);
-      if (entry.challenges) challengesList = challengesList.concat(entry.challenges);
+      // Weekwise votes -- look for votes, or vote_count as in appvote.json
+      const v = entry.votes || entry.vote_count || 0;
+      weekwiseVotes[wk] = (weekwiseVotes[wk] || 0) + (parseInt(v,10) || 0);
 
-      // For Top Apps: track votes by app
-      const app = entry.appName || 'Unnamed App';
+      // Integrations, features, challenges extraction -- support several naming conventions
+      // 'integrations', 'third_party_integrations'
+      let integrations = entry.integrations || entry.third_party_integrations;
+      if (integrations && typeof integrations === 'string') {
+        // If comma/line separated string, split to array
+        integrationList = integrationList.concat(integrations.split(/[,\\n]+/).map(s => s.trim()).filter(Boolean));
+      } else if (Array.isArray(integrations)) {
+        integrationList = integrationList.concat(integrations);
+      }
+
+      // 'uniqueFeatures', 'unique_features', 'feature_list'
+      let features = entry.uniqueFeatures || entry.unique_features || entry.feature_list;
+      if (features && typeof features === 'string') {
+        featuresList = featuresList.concat(features.split(/[,\\n]+/).map(s => s.trim()).filter(Boolean));
+      } else if (Array.isArray(features)) {
+        featuresList = featuresList.concat(features);
+      }
+
+      // 'challenges', 'challenges_faced'
+      let challenges = entry.challenges || entry.challenges_faced;
+      if (challenges && typeof challenges === 'string') {
+        challengesList = challengesList.concat(challenges.split(/[,\\n]+/).map(s => s.trim()).filter(Boolean));
+      } else if (Array.isArray(challenges)) {
+        challengesList = challengesList.concat(challenges);
+      }
+
+      // For Top Apps: Use appName, app_name etc.
+      const app = entry.appName || entry.app_name || 'Unnamed App';
       appNames.push(app);
-      appVotes[app] = (appVotes[app] || 0) + (parseInt(entry.votes,10) || 0);
+      appVotes[app] = (appVotes[app] || 0) + (parseInt(v,10) || 0);
     });
   }
 
@@ -281,6 +366,21 @@ export default function Dashboard() {
   );
 
   const renderSection = () => {
+    // Gentle empty state message for all charts/cards/clouds
+    const noData = (!Array.isArray(results) || results.length === 0);
+
+    if (noData) {
+      return (
+        <Box sx={{ textAlign: 'center', p: 3, color: '#b3b3b3' }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            No analytics data available yet.
+          </Typography>
+          <Typography variant="body2">
+            Please upload or provide valid data to see analytics summaries and visualizations.
+          </Typography>
+        </Box>
+      );
+    }
     switch (currentSection) {
       case "overview":
         return (
