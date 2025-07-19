@@ -2,7 +2,7 @@
 // Analytics data aggregation utility methods for the dashboard.
 //
 
-import { parseISO, format, isSameWeek } from "date-fns";
+import { parseISO, format, isSameWeek, isValid } from "date-fns";
 
 /**
  * Summarizes key dashboard outcomes: total submissions, votes, feedbacks, top apps.
@@ -46,15 +46,37 @@ export function getSummary(data) {
  * @param {"votes"|"submissions"} type 
  * @returns {Array<{ week: string, total: number }>}
  */
+/**
+ * Aggregates data week-wise for submissions or votes, robust to null/invalid dates.
+ * @param {Array} data 
+ * @param {"votes"|"submissions"} type 
+ * @returns {Array<{ week: string, total: number }>}
+ */
 // PUBLIC_INTERFACE
 export function getWeekwiseData(data, type) {
   // Group by ISO week
   let weeks = {};
 
   data.forEach(entry => {
+    if (!entry.date) return; // skip missing date field
     let date = parseISO(entry.date);
+    if (!(date instanceof Date) || !isValid(date)) {
+      // Optionally log error for developer insight
+      if (process && process.env && process.env.NODE_ENV === 'development') {
+        // This silent fallback is for browser-side. Remove process.env in React for prod builds
+        // console.warn('Skipping entry with invalid date:', entry);
+      }
+      return; // skip invalid dates
+    }
     // Week key: `${year}-W${weekNo}`
-    let weekKey = format(date, "yyyy-'W'II");
+    let weekKey;
+    try {
+      weekKey = format(date, "yyyy-'W'II");
+    } catch (error) {
+      // format can still throw if date is not parsable. Skip this entry as safeguard.
+      // Optionally log error for debugging.
+      return;
+    }
     if (!weeks[weekKey]) weeks[weekKey] = { week: weekKey, submissions: 0, votes: 0 };
     weeks[weekKey].submissions++;
     weeks[weekKey].votes += entry.votes || 0;
