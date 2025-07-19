@@ -1,35 +1,47 @@
-import React, { useMemo } from "react";
-import PropTypes from "prop-types";
-import CustomWordCloud from "./WordCloud";
+import React from "react";
+import WordCloud from "./WordCloud";
+import { extractIntegrationsFromApps } from "../utils";
 
 /**
  * PUBLIC_INTERFACE
- * Shows a word cloud visualization of third-party integrations based on appvote data.
- * @param {Array} apps - List of app objects with integration data field.
+ * Renders a word cloud of integrations used by apps.
+ * Never crashes—shows a friendly fallback if no data.
+ * @param {Object} props
+ * @param {Array} props.apps
  */
 const IntegrationsWordCloud = ({ apps }) => {
-  // Aggregate integration frequencies
-  const integrationFrequency = useMemo(() => {
-    const freq = {};
-    apps.forEach(app => {
-      if (app.integrations && Array.isArray(app.integrations)) {
-        app.integrations.forEach(intg => {
-          const key = intg.trim().toLowerCase();
-          freq[key] = (freq[key] || 0) + 1;
-        });
-      }
-    });
-    return Object.entries(freq)
-      .map(([k, v]) => ({ text: k, value: v }))
-      .sort((a, b) => b.value - a.value);
-  }, [apps]);
+  const safeApps = Array.isArray(apps) ? apps : [];
+  const integrations = extractIntegrationsFromApps(safeApps);
+  const safeIntegrations = Array.isArray(integrations) ? integrations : [];
+
+  // Count occurrences of each integration
+  const integrationCounts = {};
+  safeIntegrations.forEach((integration) => {
+    if (integration) {
+      integrationCounts[integration] = (integrationCounts[integration] || 0) + 1;
+    }
+  });
+
+  // Prepare word cloud data
+  const wordCloudData = Object.entries(integrationCounts).map(([text, value]) => ({
+    text,
+    value,
+  }));
+
+  const isEmpty = wordCloudData.length === 0;
 
   return (
     <div>
-      <h2 style={{marginBottom: 24}}>Key Third-Party Integrations Tried</h2>
-      <CustomWordCloud words={integrationFrequency} height={330} width={700} />
+      <h3>Most Common Integrations</h3>
+      {isEmpty ? (
+        <div style={{ textAlign: "center", color: "#888", margin: "32px" }}>
+          No data available
+        </div>
+      ) : (
+        <WordCloud words={wordCloudData} />
+      )}
     </div>
   );
 };
-IntegrationsWordCloud.propTypes = { apps: PropTypes.array.isRequired };
+
 export default IntegrationsWordCloud;

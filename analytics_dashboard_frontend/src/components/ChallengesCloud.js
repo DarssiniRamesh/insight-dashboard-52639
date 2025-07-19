@@ -1,37 +1,43 @@
-import React, { useMemo } from "react";
-import PropTypes from "prop-types";
-import CustomWordCloud from "./WordCloud";
+import React from "react";
+import WordCloud from "./WordCloud";
 
 /**
  * PUBLIC_INTERFACE
- * Renders a sentence/phrase cloud for challenges faced by apps (all apps, all weeks combined).
- * Phrases appearing more often are rendered larger.
- * @param {Array} apps - List of all app objects.
+ * Displays a word cloud for reported challenges.
+ * Shows graceful fallback if data missing.
+ * @param {Object} props
+ * @param {Array} props.challenges
  */
-const ChallengesCloud = ({ apps }) => {
-  // Flatten and count all challenge phrases across all apps
-  const phraseFreq = useMemo(() => {
-    const freq = {};
-    apps.forEach(app => {
-      if (app.challenges && Array.isArray(app.challenges)) {
-        app.challenges.forEach(phrase => {
-          const norm = phrase.trim();
-          freq[norm] = (freq[norm] || 0) + 1;
-        });
-      }
-    });
-    return Object.entries(freq)
-      .map(([text, value]) => ({ text, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [apps]);
+const ChallengesCloud = ({ challenges }) => {
+  const safeChallenges = Array.isArray(challenges) ? challenges : [];
+
+  // Count occurrences of each challenge
+  const challengeCounts = {};
+  safeChallenges.forEach((challenge) => {
+    if (challenge) {
+      challengeCounts[challenge] = (challengeCounts[challenge] || 0) + 1;
+    }
+  });
+
+  const wordCloudData = Object.entries(challengeCounts).map(([text, value]) => ({
+    text,
+    value,
+  }));
+
+  const isEmpty = wordCloudData.length === 0;
 
   return (
     <div>
-      <h2 style={{marginBottom: 24}}>Challenges Faced (Sentence Cloud)</h2>
-      <CustomWordCloud words={phraseFreq} height={330} width={900} isPhraseCloud />
+      <h3>Reported Challenges</h3>
+      {isEmpty ? (
+        <div style={{ textAlign: "center", color: "#888", margin: "32px" }}>
+          No data available
+        </div>
+      ) : (
+        <WordCloud words={wordCloudData} />
+      )}
     </div>
   );
 };
 
-ChallengesCloud.propTypes = { apps: PropTypes.array.isRequired };
 export default ChallengesCloud;
