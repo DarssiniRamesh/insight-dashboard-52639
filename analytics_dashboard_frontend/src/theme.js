@@ -1,25 +1,59 @@
-//
-// Custom theme constants for oceanic blue (teal tint) dashboard
-//
-export const colors = {
-  background: "#16222A",             // deep ocean blue
-  card: "#22313F",                   // card background (slightly lighter)
-  accent: "#29b6f6",                 // teal accent
-  accentHighlight: "#53e3fc",        // luminous/shine
-  sidebar: "#17212B",
-  nav: "#141e27",
-  text: "#FCFCFC",                   // luminous white
-  textDim: "#8ababf",                // soft teal/gray for less focus
-  border: "#2c3e50",
-  positive: "#34d399",
-  negative: "#f87171",
-  warning: "#ffe066",
+const theme = {
+  palette: {
+    primary: {
+      main: "#1976d2", // Tealish blue for primary
+      contrastText: "#fff",
+    },
+    secondary: {
+      main: "#424242",
+    },
+    accent: {
+      main: "#29b6f6",
+      contrastText: "#fff",
+    },
+    background: {
+      default: "#f5fafd",
+      paper: "#fafcff",
+    },
+    text: {
+      primary: "#222",
+      secondary: "#7a7a7a",
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  typography: {
+    fontFamily: "'Roboto', 'Segoe UI', 'Arial', sans-serif",
+    h6: {
+      fontWeight: 600,
+      color: "#1976d2",
+    },
+    h4: {
+      fontWeight: 700,
+      color: "#1976d2",
+    },
+    subtitle1: {
+      color: "#29b6f6",
+      fontWeight: 500,
+    },
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        rounded: {
+          borderRadius: 12,
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+        },
+      },
+    },
+  },
 };
 
-export const chartColors = [
-  "#29b6f6", "#34d399", "#fb7185", "#ffe066", "#a78bfa", "#f6c90e"
-];
-
-export const font = {
-  family: "'Inter', 'Segoe UI', 'Roboto', Arial, sans-serif",
-};
+export default theme;
