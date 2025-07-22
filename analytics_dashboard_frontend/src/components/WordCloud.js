@@ -1,6 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
-import WordCloud from "react-wordcloud";
+import SimpleD3WordCloud from "./SimpleD3WordCloud";
 
 /**
  * PUBLIC_INTERFACE
@@ -19,27 +19,12 @@ const CustomWordCloud = ({ words, height=300, width=600, isPhraseCloud=false }) 
     );
   }
 
-  // react-wordcloud expects [{text, value}], we provide words prop in this format
-  const options = {
-    rotations: 3,
-    rotationAngles: [0, 60, 90],
-    fontSizes: [18, 60],
-    fontFamily: isPhraseCloud ? "Georgia,serif" : "sans-serif",
-    colors: isPhraseCloud ? ["#1976d2", "#29b6f6", "#424242"] : ["#1976d2", "#fbc02d", "#388e3c", "#d32f2f"],
-    enableTooltip: true,
-  };
+  // d3-cloud expects [{text, value}], we provide words prop in this format
+  // Use colors based on isPhraseCloud for compatibility with prior visual style
+  const colors = isPhraseCloud ? ["#1976d2", "#29b6f6", "#424242"] : ["#1976d2", "#fbc02d", "#388e3c", "#d32f2f"];
 
   return (
-    <div style={{
-      width: width,
-      height: height,
-      margin: "auto",
-      background: "#fafafa",
-      border: "1px solid #e0e0e0",
-      borderRadius: "8px"
-    }}>
-      <WordCloud words={words} options={options} />
-    </div>
+    <SimpleD3WordCloud words={words} width={width} height={height} colors={colors} />
   );
 };
 
